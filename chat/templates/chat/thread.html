@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h3>Thread for {% if user != object.first %}{{ object.first }}{% else %}{{ object.second }}{% endif %}</h3>
+
+<ul id='chat-items'>   <!-- message sending from here -->
+{% for chat in object.chatmessage_set.all %}
+
+<li>{{ chat.message }} via {{ chat.user }}</li>
+
+{% endfor %}
+</ul>
+
+<form id='form' method='POST'> <!-- message is writen in this form -->
+   {% csrf_token %}
+   <input type= 'hidden' id='myUsername' value='{{ user.username }}'/>
+{{form.as_p }}
+
+<input type='submit' class='btn btn-primary'/>
+</form>
+
+{% endblock %}
+{% block script %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.js">
+</script>
+<script>
+// console.log(window.location)
+var loc = window.location
+var formData = $("#form") // id where we write code
+var msgInput = $("#id_message") // id of the html message
+var chatHolder = $("#chat-items")
+var me = $("#myUsername").val()
+
+var wsStart='ws://'
+if (loc.protocol =='https:'){ // to convert into ws websocket url
+    wsStart = 'wss://'
+}
+var endpoint = wsStart + loc.host + loc.pathname // connecting below websocket
+var socket = new ReconnectingWebSocket(endpoint)// auto Reconnecting socket to browser
+
+socket.onmessage = function(e){
+    console.log("message", e)
+    var chatDataMsg = JSON.parse(e.data) //  changing into jason form
+    chatHolder.append("<li>"+ chatDataMsg.message +  " Via "  + chatDataMsg.username + "</i>")//messages showing on fronend
+}
+socket.onopen = function(e){
+    console.log("open", e)
+    formData.submit(function(event){//messages sending to server
+        event.preventDefault()
+        var msgText = msgInput.val()
+        // chatHolder.append("<li>"+ msgText +  "  Via  "  + me + "</i>")
+        // var formDataSerialized = formData.serialize()
+        var finalData = {
+            'message':msgText
+        }
+        socket.send(JSON.stringify(finalData)) //sending final data to server
+        // msgInput.val('')
+        formData[0].reset()
+    })
+}
+socket.onerror = function(e){
+    console.log("error", e)
+}
+socket.onclose = function(e){
+    console.log("close", e)
+}
+</script>
+{% endblock %}
